@@ -7,6 +7,8 @@
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Tooling/Refactoring.h"
 
+#include "helper.hpp"
+
 using namespace clang;
 using namespace clang::ast_matchers;
 using namespace clang::tooling;

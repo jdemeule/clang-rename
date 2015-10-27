@@ -10,12 +10,15 @@
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/YAMLTraits.h"
 
+#include "helper.hpp"
+
 using clang::tooling::CompilationDatabase;
 using clang::tooling::TranslationUnitReplacements;
 using clang::tooling::Replacement;
 using clang::tooling::Replacements;
 
 using namespace llvm;
+
 
 namespace clang_rename {
 
