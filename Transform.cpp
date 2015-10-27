@@ -17,25 +17,27 @@ using clang::tooling::Replacements;
 
 using namespace llvm;
 
-namespace mef_modernize {
+namespace clang_rename {
 
-cl::OptionCategory MefModernizeCategory("Modernize mef code options");
+cl::OptionCategory TransformsCategory("Transforms");
 
-
-cl::opt<std::string> MefClassName("mefclass",
-                                  cl::desc("<current mef class> (mandatory)"),
-                                  cl::cat(MefModernizeCategory));
 
 cl::opt<bool> Quiet("quiet",
                     cl::desc("Do not report colored AST in case of error"),
-                    cl::cat(MefModernizeCategory));
+                    cl::cat(TransformsCategory));
 
+cl::opt<std::string> From("from",
+                          cl::desc("Symbol to rename"),
+                          cl::cat(TransformsCategory));
+cl::opt<std::string> To("to",
+                        cl::desc("New name"),
+                        cl::cat(TransformsCategory));
 
-static cl::opt<bool> AllTransformation("all", cl::desc("Apply all transformations"), cl::cat(MefModernizeCategory));
+static cl::opt<bool> AllTransformation("all", cl::desc("Apply all transformations"), cl::cat(TransformsCategory));
 
 static cl::opt<std::string> OutputDir("outputdir",
                                       cl::desc("<path> output dir."),
-                                      cl::cat(MefModernizeCategory));
+                                      cl::cat(TransformsCategory));
 
 static std::string GetOutputDir() {
    if (OutputDir.empty())
@@ -136,7 +138,7 @@ void Transforms::registerOptions() {
 
       m_options[I->getName()] = std::make_unique<cl::opt<bool> >(I->getName(),
                                                                  cl::desc(I->getDesc()),
-                                                                 cl::cat(MefModernizeCategory));
+                                                                 cl::cat(TransformsCategory));
    }
 }
 

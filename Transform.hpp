@@ -1,5 +1,5 @@
-#ifndef MEF_MODERNIZE_TRANSFORM_HPP
-#define MEF_MODERNIZE_TRANSFORM_HPP
+#ifndef CLANG_RENAME_TRANSFORM_HPP
+#define CLANG_RENAME_TRANSFORM_HPP
 
 #include <map>
 #include <memory>
@@ -10,7 +10,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Registry.h"
 
-namespace mef_modernize {
+namespace clang_rename {
 
 class Transform {
 public:
@@ -54,9 +54,12 @@ private:
    OptionsMap          m_options;
 };
 
-extern llvm::cl::OptionCategory   MefModernizeCategory;
-extern llvm::cl::opt<std::string> MefClassName;
+extern llvm::cl::OptionCategory   TransformsCategory;
 extern llvm::cl::opt<bool>        Quiet;
+
+extern llvm::cl::opt<std::string> From;
+extern llvm::cl::opt<std::string> To;
+
 }
 
 #endif

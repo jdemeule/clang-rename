@@ -11,44 +11,73 @@ using namespace clang;
 using namespace clang::ast_matchers;
 using namespace clang::tooling;
 
-using namespace mef_modernize;
+using namespace clang_rename;
 
-const char* MethodId = "explore-dependency-method";
+const char* CurrentNS = "current-ns";
 
-DeclarationMatcher makeExploreDependencyFunctionDeclMatcher() {
-   return functionDecl(
-              hasName("ExploreDependency"),
-              parameterCountIs(2))
-       .bind(MethodId);
+DeclarationMatcher makeRenameNSDeclMatcher(const std::string& name) {
+   return namespaceDecl(hasName(name)).bind(CurrentNS);
 }
 
-class ImplementsDependencyExplorerCallback : public MatchFinder::MatchCallback {
+class RenameNSCallback : public MatchFinder::MatchCallback {
 public:
-   ImplementsDependencyExplorerCallback(Transform& T)
+   RenameNSCallback(Transform& T)
       : Owner(T) {}
 
    virtual void run(const MatchFinder::MatchResult& Result) {
-      auto ExploreDependency_method = Result.Nodes.getNodeAs<FunctionDecl>(MethodId);
-      if (!ExploreDependency_method)
-         return;
 
-      //ExploreDependency_method->dump();
-      auto p0 = ExploreDependency_method->getParamDecl(0);
-
-      std::stringstream pxThis_parameter;
-      pxThis_parameter << MefClassName << "* /*pxThis*/, ";
-
-      Owner.addReplacement(Replacement(*(Result.SourceManager),
-                                       p0->getLocStart(),
-                                       0,
-                                       pxThis_parameter.str()));
    }
 
 private:
    Transform& Owner;
 };
 
-class ImplementsDependencyExplorerTransform : public Transform {
+
+
+const char* FullQualifiedVarDeclID = "full-qualified-vardecl";
+
+DeclarationMatcher makeVarDeclNSMatcher(const std::string& ns) {
+   return varDecl(hasType(elaboratedType(hasQualifier(nestedNameSpecifier(specifiesNamespace(hasName(ns)))))))
+      .bind(FullQualifiedVarDeclID);
+}
+
+class VarDeclNSCallback : public MatchFinder::MatchCallback {
+public:
+   VarDeclNSCallback(Transform& T)
+      : Owner(T) {}
+
+   virtual void run(const MatchFinder::MatchResult& Result) {
+
+   }
+
+private:
+   Transform& Owner;
+};
+
+
+
+const char* UsingDeclID = "using-decl";
+
+DeclarationMatcher makeUsingNSMatcher(const std::string& ns) {
+   return usingDecl(hasAnyUsingShadowDecl(hasTargetDecl(matchesName(ns + "::"))))
+      .bind(UsingDeclID);
+}
+
+class UsingNSCallback : public MatchFinder::MatchCallback {
+public:
+   UsingNSCallback(Transform& T)
+      : Owner(T) {}
+
+   virtual void run(const MatchFinder::MatchResult& Result) {
+
+   }
+
+private:
+   Transform& Owner;
+};
+
+
+class RenameNSTransform : public Transform {
 public:
    virtual int apply(const CompilationDatabase& Compilations,
                      const std::vector<std::string>& SourcePaths) override {
@@ -59,12 +88,15 @@ public:
       if (Quiet)
          Tool.setDiagnosticConsumer(diagConsumer.get());
 
-      ImplementsDependencyExplorerCallback Callback(*this);
+      RenameNSCallback  Callback(*this);
+      VarDeclNSCallback VarDeclCallback(*this);
+      UsingNSCallback   UsingCallback(*this);
+      MatchFinder       Finder;
 
-      MatchFinder Finder;
+      Finder.addMatcher(makeRenameNSDeclMatcher(From), &Callback);
+      Finder.addMatcher(makeVarDeclNSMatcher(From), &VarDeclCallback);
+      Finder.addMatcher(makeUsingNSMatcher(From), &UsingCallback);
 
-      Finder.addMatcher(makeExploreDependencyFunctionDeclMatcher(),
-                        &Callback);
 
       return Tool.run(newFrontendActionFactory(&Finder).get());
    }
@@ -72,12 +104,12 @@ public:
 
 
 
-struct ImplementsDependencyExplorerTransformFactory : public TransformFactory {
+struct RenameNSTransformFactory : public TransformFactory {
    virtual std::unique_ptr<Transform> createTransform() const {
-      return std::make_unique<ImplementsDependencyExplorerTransform>();
+      return std::make_unique<RenameNSTransform>();
    }
 };
 
 
-static TransformFactoryRegistry::Add<ImplementsDependencyExplorerTransformFactory>
-    X("implements-dependency-explorer", "Find ExploreDependency and implements mxSystemDataIDEPENDENCY_EXPLORER instead");
+static TransformFactoryRegistry::Add<RenameNSTransformFactory>
+    X("rename-ns", "Rename a namespace");

@@ -45,18 +45,18 @@
 using namespace clang;
 using namespace clang::tooling;
 
-using namespace mef_modernize;
+using namespace clang_rename;
 
-#if __clang__
-
-namespace std {
-   template< class T, class... Args >
-   unique_ptr<T> make_unique(Args&&... args) {
-      return unique_ptr< T >(new T(std::forward<Args>(args)...));
-   }
-}
-
-#endif
+//#if __clang__
+//
+//namespace std {
+//   template< class T, class... Args >
+//   unique_ptr<T> make_unique(Args&&... args) {
+//      return unique_ptr< T >(new T(std::forward<Args>(args)...));
+//   }
+//}
+//
+//#endif
 
 
 
@@ -64,12 +64,7 @@ int main(int argc, const char **argv) {
    Transforms transforms;
    transforms.registerOptions();
 
-   CommonOptionsParser op(argc, argv, MefModernizeCategory);
-
-   if (MefClassName.empty()) {
-      std::cerr << "Missing current mef class name" << std::endl;
-      return 1;
-   }
+   CommonOptionsParser op(argc, argv, TransformsCategory);
 
    transforms.apply(op.getCompilations(), op.getSourcePathList());
 
