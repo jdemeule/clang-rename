@@ -6,6 +6,8 @@
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Tooling/Refactoring.h"
+#include "clang/Frontend/TextDiagnosticPrinter.h"
+#include "clang/Rewrite/Core/Rewriter.h"
 
 #include "helper.hpp"
 
@@ -27,7 +29,11 @@ public:
       : Owner(T) {}
 
    virtual void run(const MatchFinder::MatchResult& Result) {
-
+      SourceManager &SM = *Result.SourceManager;
+      auto ns = Result.Nodes.getDeclAs<NamespaceDecl>(CurrentNS);
+      ns->dump();
+//      Owner.addReplacement(Replacement(ns->getLocation()));
+//      Owner.addReplacementForCurrentTU(Replacement(SM, StartLoc, 0, ReplacementText));
    }
 
 private:
@@ -81,6 +87,8 @@ private:
 
 class RenameNSTransform : public Transform {
 public:
+   ~RenameNSTransform() {}
+
    virtual int apply(const CompilationDatabase& Compilations,
                      const std::vector<std::string>& SourcePaths) override {
 
@@ -100,7 +108,22 @@ public:
       Finder.addMatcher(makeUsingNSMatcher(From), &UsingCallback);
 
 
-      return Tool.run(newFrontendActionFactory(&Finder).get());
+      int res = Tool.run(newFrontendActionFactory(&Finder).get());
+
+
+      LangOptions DefaultLangOptions;
+      IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
+      TextDiagnosticPrinter DiagnosticPrinter(llvm::errs(), &*DiagOpts);
+      DiagnosticsEngine Diagnostics(IntrusiveRefCntPtr<DiagnosticIDs>(new DiagnosticIDs()),
+                                    &*DiagOpts, &DiagnosticPrinter, false);
+      SourceManager Sources(Diagnostics,  Tool.getFiles());
+      Rewriter Rewrite(Sources, DefaultLangOptions);
+
+      if (!tooling::applyAllReplacements(getReplacements(), Rewrite)) {
+         llvm::errs() << "Skipped some replacements.\n";
+      }
+
+      return res;
    }
 };
 

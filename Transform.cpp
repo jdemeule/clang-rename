@@ -3,7 +3,11 @@
 #include <iostream>
 #include <sstream>
 
+#include "clang/Basic/SourceManager.h"
+#include "clang/Basic/LangOptions.h"
 #include "clang/Tooling/ReplacementsYaml.h"
+
+
 
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
@@ -145,6 +149,8 @@ void Transforms::registerOptions() {
    }
 }
 
+
+
 void Transforms::apply(const CompilationDatabase& Compilations, const std::vector<std::string>& SourcePaths) {
    instanciateTransforms();
 
@@ -153,9 +159,17 @@ void Transforms::apply(const CompilationDatabase& Compilations, const std::vecto
       return;
    }
 
+
+
    for (const auto& t : m_transforms) {
       t->apply(Compilations, SourcePaths);
-      t->serializeReplacements();
+
+//      clang::tooling::applyAllReplacements(t->getReplacements(), rewriter);
+//      std::unique_ptr<llvm::raw_ostream> FileStream(new llvm::raw_os_ostream(std::cout));
+//      auto& SM = rewriter.getSourceMgr();
+//      rewriter.getEditBuffer(SM.getMainFileID()).write(*FileStream);
+
+//      t->serializeReplacements();
    }
 }
 

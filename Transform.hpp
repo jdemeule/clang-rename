@@ -21,6 +21,10 @@ public:
 
    void serializeReplacements();
 
+   const clang::tooling::Replacements& getReplacements() const {
+      return m_replacements;
+   }
+
 private:
    clang::tooling::Replacements m_replacements;
 };
