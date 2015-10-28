@@ -266,7 +266,7 @@ private:
 
 class RenameNSTransform : public Transform {
 public:
-   ~RenameNSTransform() {}
+   virtual ~RenameNSTransform() {}
 
    virtual int apply(const CompilationDatabase& Compilations,
                      const std::vector<std::string>& SourcePaths) override {
@@ -320,7 +320,8 @@ public:
          std::for_each(Rewrite.buffer_begin(),
                        Rewrite.buffer_end(),
                        [](const Rewriter::buffer_iterator::value_type& x) {
-                          x.second.write(llvm::raw_os_ostream(std::cout));
+                          llvm::raw_os_ostream out(std::cout);
+                          x.second.write(out);
                        });
       }
 
@@ -331,6 +332,8 @@ public:
 
 
 struct RenameNSTransformFactory : public TransformFactory {
+   virtual ~RenameNSTransformFactory() {}
+
    virtual std::unique_ptr<Transform> createTransform() const {
       return std::make_unique<RenameNSTransform>();
    }

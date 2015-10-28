@@ -14,6 +14,8 @@ namespace clang_rename {
 
 class Transform {
 public:
+   virtual ~Transform() {}
+
    virtual int apply(const clang::tooling::CompilationDatabase& Compilations,
                      const std::vector<std::string>& SourcePaths) = 0;
 
@@ -32,6 +34,8 @@ private:
 
 
 struct TransformFactory {
+   virtual ~TransformFactory() {}
+
    virtual std::unique_ptr<Transform> createTransform() const = 0;
 };
 
