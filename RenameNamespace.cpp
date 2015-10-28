@@ -64,10 +64,10 @@ static std::vector<std::string> split_by(const std::string& str, const std::stri
 }
 
 
-const char* CurrentNS = "current-ns";
+const char* NamespaceDeclID = "current-ns";
 
 DeclarationMatcher makeRenameNSDeclMatcher(const std::string& name) {
-   return namespaceDecl(hasName(name)).bind(CurrentNS);
+   return namespaceDecl(hasName(name)).bind(NamespaceDeclID);
 }
 
 class RenameNSCallback : public MatchFinder::MatchCallback {
@@ -78,13 +78,12 @@ public:
       , NS_to(to_ns) {}
 
    virtual void run(const MatchFinder::MatchResult& Result) {
-      SourceManager &SM = *Result.SourceManager;
-      auto ns = Result.Nodes.getDeclAs<NamespaceDecl>(CurrentNS);
-      ns->dump();
-      auto s = ns->getLocStart();
-      auto r = ns->getRBraceLoc();
-      auto l = ns->getLocation();
+      SourceManager& SM = *Result.SourceManager;
 
+      auto ns = Result.Nodes.getDeclAs<NamespaceDecl>(NamespaceDeclID);
+      auto s  = ns->getLocStart();
+      auto r  = ns->getRBraceLoc();
+      auto l  = ns->getLocation();
 
       std::stringstream decl_replacement;
 
@@ -108,7 +107,7 @@ public:
 
       if (NS_from.size() < NS_to.size()) {
          std::stringstream close_replacement;
-         const char* closing_ns = "}\n";
+         const char*       closing_ns = "}\n";
          for (std::size_t i = 0, e = NS_to.size() - NS_from.size(); i != e; ++i)
             close_replacement << closing_ns;
          Owner.addReplacement(Replacement(SM, r, 0, close_replacement.str()));
@@ -136,7 +135,18 @@ public:
       : Owner(T) {}
 
    virtual void run(const MatchFinder::MatchResult& Result) {
+      // replace "foo::baz::Tata x;" by "foo::xxx::Tata x;"
+      SourceManager& SM = *Result.SourceManager;
 
+      auto var  = Result.Nodes.getDeclAs<VarDecl>(FullQualifiedVarDeclID);
+      auto s    = var->getLocStart();
+      auto e    = var->getLocEnd();
+      auto type = var->getType().getAsString();
+
+      std::stringstream new_decl;
+      new_decl << replace_all(type, From, To) << " " << var->getNameAsString();
+
+      Owner.addReplacement(Replacement(SM, CharSourceRange::getTokenRange(s, e), new_decl.str()));
    }
 
 private:
@@ -158,7 +168,17 @@ public:
       : Owner(T) {}
 
    virtual void run(const MatchFinder::MatchResult& Result) {
+      // replace "using foo::baz::Tata" by "using foo::zzz::Tata"
+      SourceManager& SM = *Result.SourceManager;
 
+      auto u = Result.Nodes.getDeclAs<UsingDecl>(UsingDeclID);
+      auto s = u->getLocStart();
+      auto e = u->getLocEnd();
+
+      std::stringstream buffer;
+      buffer << "using " << To << "::" << u->getNameAsString();
+
+      Owner.addReplacement(Replacement(SM, CharSourceRange::getTokenRange(s, e), buffer.str()));
    }
 
 private:
@@ -166,6 +186,82 @@ private:
 };
 
 
+
+//usingDirectiveDecl
+
+const char* UsingDirectiveDeclID = "using-directive-decl";
+
+DeclarationMatcher makeUsingDirectiveNSMatcher(const std::string& ns) {
+   // filtering should be done later or with a more complex matcher
+   return usingDirectiveDecl()
+      .bind(UsingDirectiveDeclID);
+}
+
+class UsingDirectiveNSCallback : public MatchFinder::MatchCallback {
+public:
+   UsingDirectiveNSCallback(Transform& T)
+      : Owner(T) {}
+
+   virtual void run(const MatchFinder::MatchResult& Result) {
+      // replace "using foo::baz::Tata" by "using foo::zzz::Tata"
+      SourceManager& SM = *Result.SourceManager;
+
+      auto usingNS = Result.Nodes.getDeclAs<UsingDirectiveDecl>(UsingDirectiveDeclID);
+      auto qname = usingNS->getNominatedNamespace()->getQualifiedNameAsString();
+
+      if (qname != From)
+         return;
+
+      auto s = usingNS->getLocStart();
+      auto e = usingNS->getLocEnd();
+
+      std::stringstream buffer;
+      buffer << "using namespace " << To;
+
+      Owner.addReplacement(Replacement(SM, CharSourceRange::getTokenRange(s, e), buffer.str()));
+   }
+
+private:
+   Transform& Owner;
+};
+
+
+
+const char* NamespaceAliasDeclID = "namespace-alias-decl";
+
+DeclarationMatcher makeNamespaceAliasDeclMatcher(const std::string& ns) {
+   // filtering should be done later or with a more complex matcher
+   return namespaceAliasDecl()
+      .bind(NamespaceAliasDeclID);
+}
+
+class NamespaceAliasDeclCallback : public MatchFinder::MatchCallback {
+public:
+   NamespaceAliasDeclCallback(Transform& T)
+      : Owner(T) {}
+
+   virtual void run(const MatchFinder::MatchResult& Result) {
+      // replace "using foo::baz::Tata" by "using foo::zzz::Tata"
+      SourceManager& SM = *Result.SourceManager;
+
+      auto aliasNS = Result.Nodes.getDeclAs<NamespaceAliasDecl>(NamespaceAliasDeclID);
+      auto qname = aliasNS->getNamespace()->getQualifiedNameAsString();
+
+      if (qname != From)
+         return;
+
+      auto s = aliasNS->getLocStart();
+      auto e = aliasNS->getLocEnd();
+
+      std::stringstream buffer;
+      buffer << "namespace " << aliasNS->getNameAsString() << " = " << To;
+
+      Owner.addReplacement(Replacement(SM, CharSourceRange::getTokenRange(s, e), buffer.str()));
+   }
+
+private:
+   Transform& Owner;
+};
 
 
 class RenameNSTransform : public Transform {
@@ -191,14 +287,19 @@ public:
 
       // assert from_ns_v[-1] € to_ns_v[-1]
 
-      RenameNSCallback  Callback(*this, from_ns_v, to_ns_v);
-      VarDeclNSCallback VarDeclCallback(*this);
-      UsingNSCallback   UsingCallback(*this);
-      MatchFinder       Finder;
+      RenameNSCallback           Callback(*this, from_ns_v, to_ns_v);
+      VarDeclNSCallback          VarDeclCallback(*this);
+      UsingNSCallback            UsingCallback(*this);
+      UsingDirectiveNSCallback   UsingDirectiveCallback(*this);
+      NamespaceAliasDeclCallback NamespaceAliasCallback(*this);
+
+      MatchFinder Finder;
 
       Finder.addMatcher(makeRenameNSDeclMatcher(From), &Callback);
       Finder.addMatcher(makeVarDeclNSMatcher(From), &VarDeclCallback);
       Finder.addMatcher(makeUsingNSMatcher(From), &UsingCallback);
+      Finder.addMatcher(makeUsingDirectiveNSMatcher(From), &UsingDirectiveCallback);
+      Finder.addMatcher(makeNamespaceAliasDeclMatcher(From), &NamespaceAliasCallback);
 
 
       int res = Tool.run(newFrontendActionFactory(&Finder).get());
