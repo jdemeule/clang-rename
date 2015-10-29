@@ -61,6 +61,17 @@ static std::vector<std::string> split_by(const std::string& str, const std::stri
 
    return values;
 }
+
+template <typename It>
+static std::string join_with(It first, It last, const std::string& with) {
+   std::stringstream buffer;
+   for (It it = first; it != last; ++it) {
+      if (it != first)
+         buffer << with;
+      buffer << *it;
+   }
+   return buffer.str();
+}
 }
 
 
@@ -115,7 +126,7 @@ public:
    }
 
 private:
-   Transform& Owner;
+   Transform&                Owner;
    std::vector<std::string>& NS_from;
    std::vector<std::string>& NS_to;
 };
@@ -131,8 +142,10 @@ DeclarationMatcher makeVarDeclNSMatcher(const std::string& ns) {
 
 class VarDeclNSCallback : public MatchFinder::MatchCallback {
 public:
-   VarDeclNSCallback(Transform& T)
-      : Owner(T) {}
+   VarDeclNSCallback(Transform& T, std::vector<std::string>& from_ns, std::vector<std::string>& to_ns)
+      : Owner(T)
+      , NS_from(from_ns)
+      , NS_to(to_ns) {}
 
    virtual void run(const MatchFinder::MatchResult& Result) {
       // replace "foo::baz::Tata x;" by "foo::xxx::Tata x;"
@@ -141,6 +154,46 @@ public:
       auto var  = Result.Nodes.getDeclAs<VarDecl>(FullQualifiedVarDeclID);
       auto s    = var->getLocStart();
       auto e    = var->getLocEnd();
+      auto type = var->getType().getAsString();
+
+      auto type_v = split_by(type, "::");
+      auto deep = NS_from.size() - (type_v.size() - 1);
+
+      std::string to_replace = join_with(std::next(NS_from.begin(), deep), NS_from.end(), "::");
+      std::string new_type = join_with(std::next(NS_to.begin(), deep), NS_to.end(), "::");
+
+
+      std::stringstream new_decl;
+      new_decl << new_type << type.substr(to_replace.size()) << " " << var->getNameAsString();
+
+
+      Owner.addReplacement(Replacement(SM, CharSourceRange::getTokenRange(s, e), new_decl.str()));
+   }
+
+private:
+   Transform&                Owner;
+   std::vector<std::string>& NS_from;
+   std::vector<std::string>& NS_to;
+};
+
+const char* FullQualifiedFieldDeclID = "full-qualified-fielddecl";
+
+DeclarationMatcher makeFieldDeclNSMatcher(const std::string& ns) {
+   return fieldDecl(hasType(elaboratedType(hasQualifier(nestedNameSpecifier(specifiesNamespace(hasName(ns)))))))
+      .bind(FullQualifiedFieldDeclID);
+}
+
+class FieldDeclNSCallback : public MatchFinder::MatchCallback {
+public:
+   FieldDeclNSCallback(Transform& T)
+      : Owner(T) {}
+
+   virtual void run(const MatchFinder::MatchResult& Result) {
+      SourceManager& SM = *Result.SourceManager;
+
+      auto var = Result.Nodes.getDeclAs<FieldDecl>(FullQualifiedFieldDeclID);
+      auto s = var->getLocStart();
+      auto e = var->getLocEnd();
       auto type = var->getType().getAsString();
 
       std::stringstream new_decl;
@@ -153,6 +206,35 @@ private:
    Transform& Owner;
 };
 
+//const char* FullQualifiedParmVarDeclID = "full-qualified-parmvardecl";
+//
+//DeclarationMatcher makeParmVarDeclNSMatcher(const std::string& ns) {
+//   return parmVarDecl(hasType(elaboratedType(hasQualifier(nestedNameSpecifier(specifiesNamespace(hasName(ns)))))))
+//      .bind(FullQualifiedParmVarDeclID);
+//}
+//
+//class ParmVarDeclNSCallback : public MatchFinder::MatchCallback {
+//public:
+//   ParmVarDeclNSCallback(Transform& T)
+//      : Owner(T) {}
+//
+//   virtual void run(const MatchFinder::MatchResult& Result) {
+//      SourceManager& SM = *Result.SourceManager;
+//
+//      auto var = Result.Nodes.getDeclAs<ParmVarDecl>(FullQualifiedParmVarDeclID);
+//      auto s = var->getLocStart();
+//      auto e = var->getLocEnd();
+//      auto type = var->getType().getAsString();
+//
+//      std::stringstream new_decl;
+//      new_decl << replace_all(type, From, To) << " " << var->getNameAsString();
+//
+//      Owner.addReplacement(Replacement(SM, CharSourceRange::getTokenRange(s, e), new_decl.str()));
+//   }
+//
+//private:
+//   Transform& Owner;
+//};
 
 
 const char* UsingDeclID = "using-decl";
@@ -326,7 +408,8 @@ public:
       // assert from_ns_v[-1] € to_ns_v[-1]
 
       RenameNSCallback           Callback(*this, from_ns_v, to_ns_v);
-      VarDeclNSCallback          VarDeclCallback(*this);
+      VarDeclNSCallback          VarCallback(*this, from_ns_v, to_ns_v);
+      FieldDeclNSCallback        FieldCallback(*this);
       UsingNSCallback            UsingCallback(*this);
       UsingDirectiveNSCallback   UsingDirectiveCallback(*this);
       NamespaceAliasDeclCallback NamespaceAliasCallback(*this);
@@ -335,7 +418,8 @@ public:
       MatchFinder Finder;
 
       Finder.addMatcher(makeRenameNSDeclMatcher(From), &Callback);
-      Finder.addMatcher(makeVarDeclNSMatcher(From), &VarDeclCallback);
+      Finder.addMatcher(makeVarDeclNSMatcher(From), &VarCallback);
+      Finder.addMatcher(makeFieldDeclNSMatcher(From), &FieldCallback);
       Finder.addMatcher(makeUsingNSMatcher(From), &UsingCallback);
       Finder.addMatcher(makeUsingDirectiveNSMatcher(From), &UsingDirectiveCallback);
       Finder.addMatcher(makeNamespaceAliasDeclMatcher(From), &NamespaceAliasCallback);
