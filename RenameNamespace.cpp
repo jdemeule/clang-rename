@@ -137,7 +137,7 @@ const char* FullQualifiedVarDeclID = "full-qualified-vardecl";
 
 DeclarationMatcher makeVarDeclNSMatcher(const std::string& ns) {
    return varDecl(hasType(elaboratedType(hasQualifier(nestedNameSpecifier(specifiesNamespace(hasName(ns)))))))
-      .bind(FullQualifiedVarDeclID);
+       .bind(FullQualifiedVarDeclID);
 }
 
 class VarDeclNSCallback : public MatchFinder::MatchCallback {
@@ -180,7 +180,7 @@ const char* FullQualifiedFieldDeclID = "full-qualified-fielddecl";
 
 DeclarationMatcher makeFieldDeclNSMatcher(const std::string& ns) {
    return fieldDecl(hasType(elaboratedType(hasQualifier(nestedNameSpecifier(specifiesNamespace(hasName(ns)))))))
-      .bind(FullQualifiedFieldDeclID);
+       .bind(FullQualifiedFieldDeclID);
 }
 
 class FieldDeclNSCallback : public MatchFinder::MatchCallback {
@@ -191,9 +191,9 @@ public:
    virtual void run(const MatchFinder::MatchResult& Result) {
       SourceManager& SM = *Result.SourceManager;
 
-      auto var = Result.Nodes.getDeclAs<FieldDecl>(FullQualifiedFieldDeclID);
-      auto s = var->getLocStart();
-      auto e = var->getLocEnd();
+      auto var  = Result.Nodes.getDeclAs<FieldDecl>(FullQualifiedFieldDeclID);
+      auto s    = var->getLocStart();
+      auto e    = var->getLocEnd();
       auto type = var->getType().getAsString();
 
       std::stringstream new_decl;
@@ -241,7 +241,7 @@ const char* UsingDeclID = "using-decl";
 
 DeclarationMatcher makeUsingNSMatcher(const std::string& ns) {
    return usingDecl(hasAnyUsingShadowDecl(hasTargetDecl(matchesName(ns + "::"))))
-      .bind(UsingDeclID);
+       .bind(UsingDeclID);
 }
 
 class UsingNSCallback : public MatchFinder::MatchCallback {
@@ -257,8 +257,15 @@ public:
       auto s = u->getLocStart();
       auto e = u->getLocEnd();
 
+      auto q = u->getQualifier();
+      while (q->getPrefix()) {
+         q = q->getPrefix();
+      }
+
+      auto kind = q->getKind();
+
       std::stringstream buffer;
-      buffer << "using " << To << "::" << u->getNameAsString();
+      buffer << "using " << (kind == NestedNameSpecifier::Global ? "::" : "") << To << "::" << u->getNameAsString();
 
       Owner.addReplacement(Replacement(SM, CharSourceRange::getTokenRange(s, e), buffer.str()));
    }
@@ -276,7 +283,7 @@ const char* UsingDirectiveDeclID = "using-directive-decl";
 DeclarationMatcher makeUsingDirectiveNSMatcher(const std::string& ns) {
    // filtering should be done later or with a more complex matcher
    return usingDirectiveDecl()
-      .bind(UsingDirectiveDeclID);
+       .bind(UsingDirectiveDeclID);
 }
 
 class UsingDirectiveNSCallback : public MatchFinder::MatchCallback {
@@ -289,7 +296,7 @@ public:
       SourceManager& SM = *Result.SourceManager;
 
       auto usingNS = Result.Nodes.getDeclAs<UsingDirectiveDecl>(UsingDirectiveDeclID);
-      auto qname = usingNS->getNominatedNamespace()->getQualifiedNameAsString();
+      auto qname   = usingNS->getNominatedNamespace()->getQualifiedNameAsString();
 
       if (qname != From)
          return;
@@ -314,7 +321,7 @@ const char* NamespaceAliasDeclID = "namespace-alias-decl";
 DeclarationMatcher makeNamespaceAliasDeclMatcher(const std::string& ns) {
    // filtering should be done later or with a more complex matcher
    return namespaceAliasDecl()
-      .bind(NamespaceAliasDeclID);
+       .bind(NamespaceAliasDeclID);
 }
 
 class NamespaceAliasDeclCallback : public MatchFinder::MatchCallback {
@@ -327,7 +334,7 @@ public:
       SourceManager& SM = *Result.SourceManager;
 
       auto aliasNS = Result.Nodes.getDeclAs<NamespaceAliasDecl>(NamespaceAliasDeclID);
-      auto qname = aliasNS->getNamespace()->getQualifiedNameAsString();
+      auto qname   = aliasNS->getNamespace()->getQualifiedNameAsString();
 
       if (qname != From)
          return;
@@ -351,7 +358,7 @@ const char* TypedefDeclID = "typedef-decl";
 DeclarationMatcher makeTypeDefeclMatcher(const std::string& ns) {
    // filtering should be done later or with a more complex matcher
    return typedefDecl()
-      .bind(TypedefDeclID);
+       .bind(TypedefDeclID);
 }
 
 class TypedefDeclCallback : public MatchFinder::MatchCallback {
@@ -398,7 +405,7 @@ public:
          Tool.setDiagnosticConsumer(diagConsumer.get());
 
       std::string from_ns = From;
-      std::string to_ns = To;
+      std::string to_ns   = To;
 
       auto from_ns_v = split_by(from_ns, "::");
       auto to_ns_v   = split_by(to_ns, "::");
@@ -437,14 +444,13 @@ public:
 
          if (!tooling::applyAllReplacements(getReplacements(), Rewrite)) {
             llvm::errs() << "Skipped some replacements.\n";
-         }
-         else {
+         } else {
             std::for_each(Rewrite.buffer_begin(),
                           Rewrite.buffer_end(),
                           [](const Rewriter::buffer_iterator::value_type& x) {
-               llvm::raw_os_ostream out(std::cout);
-               x.second.write(out);
-            });
+                             llvm::raw_os_ostream out(std::cout);
+                             x.second.write(out);
+                          });
          }
       }
 
@@ -465,5 +471,3 @@ struct RenameNSTransformFactory : public TransformFactory {
 
 static TransformFactoryRegistry::Add<RenameNSTransformFactory>
     X("rename-ns", "Rename a namespace");
-
-
