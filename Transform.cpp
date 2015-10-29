@@ -33,6 +33,10 @@ cl::opt<bool> Quiet("quiet",
                     cl::desc("Do not report colored AST in case of error"),
                     cl::cat(TransformsCategory));
 
+cl::opt<bool> StdOut("stdout",
+                    cl::desc("Print output to cout instead of file"),
+                    cl::cat(TransformsCategory));
+
 cl::opt<std::string> From("from",
                           cl::desc("Symbol to rename"),
                           cl::cat(TransformsCategory));
@@ -164,12 +168,8 @@ void Transforms::apply(const CompilationDatabase& Compilations, const std::vecto
    for (const auto& t : m_transforms) {
       t->apply(Compilations, SourcePaths);
 
-//      clang::tooling::applyAllReplacements(t->getReplacements(), rewriter);
-//      std::unique_ptr<llvm::raw_ostream> FileStream(new llvm::raw_os_ostream(std::cout));
-//      auto& SM = rewriter.getSourceMgr();
-//      rewriter.getEditBuffer(SM.getMainFileID()).write(*FileStream);
-
-//      t->serializeReplacements();
+      if (!StdOut)
+         t->serializeReplacements();
    }
 }
 

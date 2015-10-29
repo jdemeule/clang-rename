@@ -64,6 +64,7 @@ private:
 
 extern llvm::cl::OptionCategory   TransformsCategory;
 extern llvm::cl::opt<bool>        Quiet;
+extern llvm::cl::opt<bool>        StdOut;
 
 extern llvm::cl::opt<std::string> From;
 extern llvm::cl::opt<std::string> To;

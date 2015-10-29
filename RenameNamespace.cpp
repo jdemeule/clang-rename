@@ -428,25 +428,26 @@ public:
 
       int res = Tool.run(newFrontendActionFactory(&Finder).get());
 
-      // if stdout
+      if (StdOut) {
+         LangOptions                           DefaultLangOptions;
+         IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
+         TextDiagnosticPrinter DiagnosticPrinter(llvm::errs(), &*DiagOpts);
+         DiagnosticsEngine Diagnostics(IntrusiveRefCntPtr<DiagnosticIDs>(new DiagnosticIDs()),
+                                       &*DiagOpts, &DiagnosticPrinter, false);
+         SourceManager Sources(Diagnostics, Tool.getFiles());
+         Rewriter Rewrite(Sources, DefaultLangOptions);
 
-      LangOptions                           DefaultLangOptions;
-      IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
-      TextDiagnosticPrinter DiagnosticPrinter(llvm::errs(), &*DiagOpts);
-      DiagnosticsEngine Diagnostics(IntrusiveRefCntPtr<DiagnosticIDs>(new DiagnosticIDs()),
-                                    &*DiagOpts, &DiagnosticPrinter, false);
-      SourceManager Sources(Diagnostics, Tool.getFiles());
-      Rewriter Rewrite(Sources, DefaultLangOptions);
-
-      if (!tooling::applyAllReplacements(getReplacements(), Rewrite)) {
-         llvm::errs() << "Skipped some replacements.\n";
-      } else {
-         std::for_each(Rewrite.buffer_begin(),
-                       Rewrite.buffer_end(),
-                       [](const Rewriter::buffer_iterator::value_type& x) {
-                          llvm::raw_os_ostream out(std::cout);
-                          x.second.write(out);
-                       });
+         if (!tooling::applyAllReplacements(getReplacements(), Rewrite)) {
+            llvm::errs() << "Skipped some replacements.\n";
+         }
+         else {
+            std::for_each(Rewrite.buffer_begin(),
+                          Rewrite.buffer_end(),
+                          [](const Rewriter::buffer_iterator::value_type& x) {
+               llvm::raw_os_ostream out(std::cout);
+               x.second.write(out);
+            });
+         }
       }
 
       return res;
