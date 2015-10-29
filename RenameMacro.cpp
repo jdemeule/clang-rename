@@ -97,33 +97,13 @@ MacroReplacement BuildMacroReplacement(Preprocessor& PP, const Token& MacroNameT
    return MacroReplacement({m.str(), spelling.size(), true});
 }
 
-class PPCallbacksTracker : public PPCallbacks {
+class PPRenameMacroTracker : public PPCallbacks {
 public:
-   PPCallbacksTracker(Preprocessor& pp, MacroTransform& T)
+   PPRenameMacroTracker(Preprocessor& pp, MacroTransform& T)
       : PP(pp)
       , Owner(T) {}
 
-   virtual ~PPCallbacksTracker() {}
-
-   virtual void InclusionDirective(SourceLocation HashLoc,
-                                   const Token &IncludeTok,
-                                   StringRef FileName,
-                                   bool IsAngled,
-                                   CharSourceRange FilenameRange,
-                                   const FileEntry *File,
-                                   StringRef SearchPath,
-                                   StringRef RelativePath,
-                                   const Module *Imported) override {
-      auto hloc = getSourceLocationString(PP, HashLoc);
-      auto tloc = getSourceLocationString(PP, IncludeTok.getLocation());
-
-      std::string boost = "boost";
-      std::string target = FileName;
-      std::stringstream recomputed;
-      recomputed << (IsAngled ? '<' : '"') << "murex/mbl" << target.substr(boost.size()) << (IsAngled ? '>' : '"');
-
-      Owner.addReplacement(Replacement(PP.getSourceManager(), FilenameRange, recomputed.str()));
-   }
+   virtual ~PPRenameMacroTracker() {}
 
    virtual void MacroExpands(const Token& MacroNameTok, const MacroDirective* MD,
                              SourceRange Range, const MacroArgs* Args) override {
@@ -171,36 +151,36 @@ private:
    MacroTransform& Owner;
 };
 
-class PPTraceConsumer : public ASTConsumer {
+class PPRenameMacroConsumer : public ASTConsumer {
 public:
-   PPTraceConsumer(Preprocessor& PP, MacroTransform& T) {
+   PPRenameMacroConsumer(Preprocessor& PP, MacroTransform& T) {
       // PP takes ownership.
-      PP.addPPCallbacks(new PPCallbacksTracker(PP, T));
+      PP.addPPCallbacks(new PPRenameMacroTracker(PP, T));
    }
 };
 
-class PPTraceAction : public SyntaxOnlyAction {
+class PPRenameMacroAction : public SyntaxOnlyAction {
 public:
-   PPTraceAction(MacroTransform& T)
+   PPRenameMacroAction(MacroTransform& T)
       : Owner(T) {}
 
 protected:
    virtual clang::ASTConsumer* CreateASTConsumer(CompilerInstance& CI,
                                                  StringRef InFile) {
-      return new PPTraceConsumer(CI.getPreprocessor(), Owner);
+      return new PPRenameMacroConsumer(CI.getPreprocessor(), Owner);
    }
 
 private:
    MacroTransform& Owner;
 };
 
-class PPTraceFrontendActionFactory : public FrontendActionFactory {
+class PPRenameMacroFrontendActionFactory : public FrontendActionFactory {
 public:
-   PPTraceFrontendActionFactory(MacroTransform& T)
+   PPRenameMacroFrontendActionFactory(MacroTransform& T)
       : Owner(T) {}
 
-   virtual PPTraceAction* create() {
-      return new PPTraceAction(Owner);
+   virtual PPRenameMacroAction* create() {
+      return new PPRenameMacroAction(Owner);
    }
    MacroTransform& Owner;
 };
@@ -219,7 +199,7 @@ int MacroTransform::apply(const CompilationDatabase& Compilations,
                           const std::vector<std::string>& SourcePaths) {
    ClangTool Tool(Compilations, SourcePaths);
 
-   int HadErrors = Tool.run(new PPTraceFrontendActionFactory(*this));
+   int HadErrors = Tool.run(new PPRenameMacroFrontendActionFactory(*this));
    if (StdOut) {
       LangOptions                           DefaultLangOptions;
       IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
