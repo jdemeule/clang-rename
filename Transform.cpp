@@ -88,6 +88,8 @@ std::string replace_all(const std::string& str, const std::string& what, const s
 }
 
 bool Transform::addReplacement(const Replacement& replacement) {
+   if (replacement.getFilePath().empty())
+      return false;
    m_replacements.insert(replacement);
    return true;
 }

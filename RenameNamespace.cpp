@@ -118,10 +118,17 @@ public:
 
       if (NS_from.size() < NS_to.size()) {
          std::stringstream close_replacement;
-         const char*       closing_ns = "}\n";
-         for (std::size_t i = 0, e = NS_to.size() - NS_from.size(); i != e; ++i)
+         const char*       closing_ns = "}";
+         for (std::size_t i = 0, e = NS_to.size() - NS_from.size() + 1; i != e; ++i)
             close_replacement << closing_ns;
-         Owner.addReplacement(Replacement(SM, r, 0, close_replacement.str()));
+         //auto filename = SM.getFilename(r);
+         //if (filename.empty()) {
+         //   bool b = true;
+         //   r.dump(SM);
+         //}
+         //if (isFileID())
+
+         Owner.addReplacement(Replacement(SM, CharSourceRange::getTokenRange(r, r), close_replacement.str()));
       }
    }
 
