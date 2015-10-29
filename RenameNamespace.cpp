@@ -6,8 +6,8 @@
 #include "clang/AST/AST.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
-#include "clang/Tooling/Refactoring.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
+#include "clang/Tooling/Refactoring.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/raw_os_ostream.h"
@@ -397,8 +397,6 @@ public:
       if (Quiet)
          Tool.setDiagnosticConsumer(diagConsumer.get());
 
-
-
       std::string from_ns = From;
       std::string to_ns = To;
 
@@ -467,3 +465,5 @@ struct RenameNSTransformFactory : public TransformFactory {
 
 static TransformFactoryRegistry::Add<RenameNSTransformFactory>
     X("rename-ns", "Rename a namespace");
+
+
