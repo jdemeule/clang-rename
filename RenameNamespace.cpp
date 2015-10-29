@@ -264,6 +264,44 @@ private:
 };
 
 
+const char* TypedefDeclID = "typedef-decl";
+
+DeclarationMatcher makeTypeDefeclMatcher(const std::string& ns) {
+   // filtering should be done later or with a more complex matcher
+   return typedefDecl()
+      .bind(TypedefDeclID);
+}
+
+class TypedefDeclCallback : public MatchFinder::MatchCallback {
+public:
+   TypedefDeclCallback(Transform& T)
+      : Owner(T) {}
+
+   virtual void run(const MatchFinder::MatchResult& Result) {
+      // replace "using foo::baz::Tata" by "using foo::zzz::Tata"
+      SourceManager& SM = *Result.SourceManager;
+
+      auto TD    = Result.Nodes.getDeclAs<TypedefDecl>(TypedefDeclID);
+      auto u     = TD->getUnderlyingType();
+      auto qname = u.getAsString();
+
+      if (qname.find(From) == std::string::npos)
+         return;
+
+      auto s = TD->getLocStart();
+      auto e = TD->getLocEnd();
+
+      std::stringstream buffer;
+      buffer << "typedef " << replace_all(qname, From, To);
+
+      Owner.addReplacement(Replacement(SM, CharSourceRange::getTokenRange(s, e), buffer.str()));
+   }
+
+private:
+   Transform& Owner;
+};
+
+
 class RenameNSTransform : public Transform {
 public:
    virtual ~RenameNSTransform() {}
@@ -292,6 +330,7 @@ public:
       UsingNSCallback            UsingCallback(*this);
       UsingDirectiveNSCallback   UsingDirectiveCallback(*this);
       NamespaceAliasDeclCallback NamespaceAliasCallback(*this);
+      TypedefDeclCallback        TypedefCallback(*this);
 
       MatchFinder Finder;
 
@@ -300,6 +339,7 @@ public:
       Finder.addMatcher(makeUsingNSMatcher(From), &UsingCallback);
       Finder.addMatcher(makeUsingDirectiveNSMatcher(From), &UsingDirectiveCallback);
       Finder.addMatcher(makeNamespaceAliasDeclMatcher(From), &NamespaceAliasCallback);
+      Finder.addMatcher(makeTypeDefeclMatcher(From), &TypedefCallback);
 
 
       int res = Tool.run(newFrontendActionFactory(&Finder).get());
