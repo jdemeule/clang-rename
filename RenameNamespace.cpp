@@ -370,8 +370,10 @@ DeclarationMatcher makeTypeDefeclMatcher(const std::string& ns) {
 
 class TypedefDeclCallback : public MatchFinder::MatchCallback {
 public:
-   TypedefDeclCallback(Transform& T)
-      : Owner(T) {}
+   TypedefDeclCallback(Transform& T, std::vector<std::string>& from_ns, std::vector<std::string>& to_ns)
+      : Owner(T)
+      , NS_from(from_ns)
+      , NS_to(to_ns) {}
 
    virtual void run(const MatchFinder::MatchResult& Result) {
       // replace "using foo::baz::Tata" by "using foo::zzz::Tata"
@@ -384,17 +386,37 @@ public:
       if (qname.find(From) == std::string::npos)
          return;
 
+      auto ctx = TD->getDeclContext();
+      while (ctx && ctx->getDeclKind() != Decl::Namespace)
+         ctx = ctx->getParent();
+
+      std::string enclosingNamespace = "";
+      if (ctx) {
+         if (auto enclosingNS = dyn_cast<NamespaceDecl>(ctx))
+            enclosingNamespace = enclosingNS->getQualifiedNameAsString();
+      }
+
+
       auto s = TD->getLocStart();
       auto e = TD->getLocEnd();
 
       std::stringstream buffer;
-      buffer << "typedef " << replace_all(qname, From, To);
+
+      if (enclosingNamespace.find(From) == 0) {
+         auto qname_v = split_by(replace_all(qname, "struct ", ""), "::");
+         buffer << "typedef " << join_with(std::next(qname_v.begin(), NS_from.size()), qname_v.end(), "::") << " " << TD->getNameAsString();
+      }
+      else
+         buffer << "typedef " << replace_all(qname, From, To) << " " << TD->getNameAsString();
+
 
       Owner.addReplacement(Replacement(SM, CharSourceRange::getTokenRange(s, e), buffer.str()));
    }
 
 private:
-   Transform& Owner;
+   Transform&                Owner;
+   std::vector<std::string>& NS_from;
+   std::vector<std::string>& NS_to;
 };
 
 
@@ -425,7 +447,7 @@ public:
       UsingNSCallback            UsingCallback(*this);
       UsingDirectiveNSCallback   UsingDirectiveCallback(*this);
       NamespaceAliasDeclCallback NamespaceAliasCallback(*this);
-      TypedefDeclCallback        TypedefCallback(*this);
+      TypedefDeclCallback        TypedefCallback(*this, from_ns_v, to_ns_v);
 
       MatchFinder Finder;
 
