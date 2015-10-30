@@ -7,6 +7,7 @@
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
+#include "clang/Lex/Lexer.h"
 #include "clang/Tooling/Refactoring.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "llvm/Support/raw_ostream.h"
@@ -414,9 +415,14 @@ public:
       if (qname.find(From) == std::string::npos)
          return;
 
+
       auto ctx = TD->getDeclContext();
-      while (ctx && ctx->getDeclKind() != Decl::Namespace)
+      while (ctx && ctx->getDeclKind() != Decl::Namespace) {
+         if (ctx->getDeclKind() == Decl::ClassTemplateSpecialization) {
+            return;
+         }
          ctx = ctx->getParent();
+      }
 
       std::string enclosingNamespace = "";
       if (ctx) {
@@ -427,10 +433,11 @@ public:
       std::stringstream buffer;
 
       if (enclosingNamespace.find(From) == 0) {
-         auto qname_v = split_by(replace_all(qname, "struct ", ""), "::");
-         buffer << "typedef " << join_with(std::next(qname_v.begin(), NS_from.size()), qname_v.end(), "::") << " " << TD->getNameAsString();
-      }
-      else
+         return;
+         //auto qname_v = split_by(replace_all(qname, "struct ", ""), "::");
+         //auto currentns_v = split_by(enclosingNamespace, "::");
+         //buffer << "typedef " << join_with(std::next(qname_v.begin(), currentns_v.size()), qname_v.end(), "::") << " " << TD->getNameAsString();
+      } else
          buffer << "typedef " << replace_all(qname, From, To) << " " << TD->getNameAsString();
 
 
@@ -441,6 +448,64 @@ private:
    Transform&                Owner;
    std::vector<std::string>& NS_from;
    std::vector<std::string>& NS_to;
+};
+
+const char* NestedNameSpecifierID = "nestedname-specifier-decl";
+
+//NestedNameSpecifierMatcher makeNestedNameSpecifierMatcher(const std::string& ns) {
+//   // filtering should be done later or with a more complex matcher
+//   return nestedNameSpecifier(specifiesNamespace(hasName(ns)))
+//      .bind(NestedNameSpecifierID);
+//}
+
+//NestedNameSpecifierLocMatcher makeNestedNameSpecifierMatcher(const std::string& ns) {
+//   // filtering should be done later or with a more complex matcher
+//   return nestedNameSpecifierLoc(hasPrefix(loc(specifiesNamespace(hasName(ns)))))
+//      .bind(NestedNameSpecifierID);
+//}
+
+NestedNameSpecifierLocMatcher makeNestedNameSpecifierMatcher(const std::string& ns) {
+   // filtering should be done later or with a more complex matcher
+   return loc(specifiesNamespace(hasName(ns)))
+       .bind(NestedNameSpecifierID);
+}
+
+class NestedNameSpecifierCallback : public MatchFinder::MatchCallback {
+public:
+   NestedNameSpecifierCallback(Transform& T)
+      : Owner(T) {}
+
+   virtual void run(const MatchFinder::MatchResult& Result) {
+      // replace "foo::baz::" by "foo::zzz::"
+      SourceManager& SM = *Result.SourceManager;
+
+      auto specifier     = Result.Nodes.getDeclAs<NestedNameSpecifierLoc>(NestedNameSpecifierID);
+      auto IdentifierLoc = specifier->getBeginLoc();
+
+      if (IdentifierLoc.isMacroID())
+         IdentifierLoc = SM.getSpellingLoc(IdentifierLoc);
+
+
+      while (true) {
+         llvm::SmallVector<char, 8> Buffer;
+         bool                       Invalid = false;
+         llvm::StringRef spelling = Lexer::getSpelling(IdentifierLoc, Buffer, SM, LangOptions(), &Invalid);
+         if (Invalid)
+            return;
+         if (spelling[0] == ':') {
+            IdentifierLoc = IdentifierLoc.getLocWithOffset(2);
+            continue;
+         }
+         if (spelling != From)
+            return;
+         break;
+      }
+
+      Owner.addReplacement(Replacement(SM, IdentifierLoc, From.size(), To));
+   }
+
+private:
+   Transform& Owner;
 };
 
 
@@ -471,7 +536,8 @@ public:
       UsingNSCallback            UsingCallback(*this);
       UsingDirectiveNSCallback   UsingDirectiveCallback(*this);
       NamespaceAliasDeclCallback NamespaceAliasCallback(*this);
-      TypedefDeclCallback        TypedefCallback(*this, from_ns_v, to_ns_v);
+      //TypedefDeclCallback        TypedefCallback(*this, from_ns_v, to_ns_v);
+      NestedNameSpecifierCallback NestedNameCallback(*this);
 
       MatchFinder Finder;
 
@@ -481,7 +547,8 @@ public:
       Finder.addMatcher(makeUsingNSMatcher(From), &UsingCallback);
       Finder.addMatcher(makeUsingDirectiveNSMatcher(From), &UsingDirectiveCallback);
       Finder.addMatcher(makeNamespaceAliasDeclMatcher(From), &NamespaceAliasCallback);
-      Finder.addMatcher(makeTypeDefeclMatcher(From), &TypedefCallback);
+      //Finder.addMatcher(makeTypeDefeclMatcher(From), &TypedefCallback);
+      Finder.addMatcher(makeNestedNameSpecifierMatcher(From), &NestedNameCallback);
 
 
       int res = Tool.run(newFrontendActionFactory(&Finder).get());

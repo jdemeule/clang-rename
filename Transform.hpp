@@ -21,7 +21,7 @@ public:
 
    bool addReplacement(const clang::tooling::Replacement& replacement);
 
-   void serializeReplacements();
+   void serializeReplacements(llvm::StringRef mainfilepath);
 
    const clang::tooling::Replacements& getReplacements() const {
       return m_replacements;

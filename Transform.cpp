@@ -107,11 +107,9 @@ TranslationUnitReplacements BuildTURs(const std::string& mainfilepath,
    return TURs;
 }
 
-static void WriteReplacements(const Replacements& replacements) {
+static void WriteReplacements(const Replacements& replacements, llvm::StringRef mainfilepath) {
    if (replacements.empty())
       return;
-
-   auto mainfilepath = replacements.begin()->getFilePath();
 
    auto filename = replace_all(sys::path::filename(mainfilepath).str(), ".", "_");
 
@@ -133,8 +131,8 @@ static void WriteReplacements(const Replacements& replacements) {
    YAML << turs;
 }
 
-void Transform::serializeReplacements() {
-   WriteReplacements(m_replacements);
+void Transform::serializeReplacements(llvm::StringRef mainfilepath) {
+   WriteReplacements(m_replacements, mainfilepath);
 }
 
 
@@ -171,7 +169,7 @@ void Transforms::apply(const CompilationDatabase& Compilations, const std::vecto
       t->apply(Compilations, SourcePaths);
 
       if (!StdOut)
-         t->serializeReplacements();
+         t->serializeReplacements(SourcePaths.front());
    }
 }
 
