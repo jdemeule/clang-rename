@@ -81,6 +81,11 @@ DeclarationMatcher makeRenameNSDeclMatcher(const std::string& name) {
    return namespaceDecl(hasName(name)).bind(NamespaceDeclID);
 }
 
+const char* OpenNS_STD     = " {\n";
+const char* CloseNS_STD    = "}\n";
+const char* OpenNS_INLINE  = " { ";
+const char* CloseNS_INLINE = "} ";
+
 class RenameNSCallback : public MatchFinder::MatchCallback {
 public:
    RenameNSCallback(Transform& T, std::vector<std::string>& from_ns, std::vector<std::string>& to_ns)
@@ -98,6 +103,9 @@ public:
 
       std::stringstream decl_replacement;
 
+      const char* openNS  = s.isMacroID() ? OpenNS_INLINE : OpenNS_STD;
+      const char* closeNS = r.isMacroID() ? CloseNS_INLINE : CloseNS_STD;
+
       // ok if not increasing namespace deep.
       if (NS_from.size() == NS_to.size()) {
          decl_replacement << "namespace " << NS_to.back();
@@ -106,8 +114,8 @@ public:
          bool first = true;
          std::for_each(std::next(NS_to.begin(), NS_from.size() - 1),
                        NS_to.end(),
-                       [&decl_replacement, &first](const std::string& ns) {
-                          decl_replacement << (first ? "" : " {\n") << "namespace " << ns;
+                       [&decl_replacement, &first, openNS](const std::string& ns) {
+                          decl_replacement << (first ? "" : openNS) << "namespace " << ns;
                           first = false;
                        });
       }
@@ -118,9 +126,8 @@ public:
 
       if (NS_from.size() < NS_to.size()) {
          std::stringstream close_replacement;
-         const char*       closing_ns = "}";
          for (std::size_t i = 0, e = NS_to.size() - NS_from.size() + 1; i != e; ++i)
-            close_replacement << closing_ns;
+            close_replacement << closeNS;
          //auto filename = SM.getFilename(r);
          //if (filename.empty()) {
          //   bool b = true;
@@ -163,6 +170,9 @@ public:
       auto e    = var->getLocEnd();
       auto type = var->getType().getAsString();
 
+      if (s.isMacroID())
+         return;
+
       auto type_v = split_by(type, "::");
       auto deep = NS_from.size() - (type_v.size() - 1);
 
@@ -202,6 +212,9 @@ public:
       auto s    = var->getLocStart();
       auto e    = var->getLocEnd();
       auto type = var->getType().getAsString();
+
+      if (s.isMacroID())
+         return;
 
       std::stringstream new_decl;
       new_decl << replace_all(type, From, To) << " " << var->getNameAsString();
@@ -264,6 +277,9 @@ public:
       auto s = u->getLocStart();
       auto e = u->getLocEnd();
 
+      if (s.isMacroID())
+         return;
+
       auto q = u->getQualifier();
       while (q->getPrefix()) {
          q = q->getPrefix();
@@ -305,11 +321,14 @@ public:
       auto usingNS = Result.Nodes.getDeclAs<UsingDirectiveDecl>(UsingDirectiveDeclID);
       auto qname   = usingNS->getNominatedNamespace()->getQualifiedNameAsString();
 
-      if (qname != From)
-         return;
-
       auto s = usingNS->getLocStart();
       auto e = usingNS->getLocEnd();
+
+      if (s.isMacroID())
+         return;
+
+      if (qname != From)
+         return;
 
       std::stringstream buffer;
       buffer << "using namespace " << To;
@@ -343,11 +362,14 @@ public:
       auto aliasNS = Result.Nodes.getDeclAs<NamespaceAliasDecl>(NamespaceAliasDeclID);
       auto qname   = aliasNS->getNamespace()->getQualifiedNameAsString();
 
-      if (qname != From)
-         return;
-
       auto s = aliasNS->getLocStart();
       auto e = aliasNS->getLocEnd();
+
+      if (s.isMacroID())
+         return;
+
+      if (qname != From)
+         return;
 
       std::stringstream buffer;
       buffer << "namespace " << aliasNS->getNameAsString() << " = " << To;
@@ -383,6 +405,12 @@ public:
       auto u     = TD->getUnderlyingType();
       auto qname = u.getAsString();
 
+      auto s = TD->getLocStart();
+      auto e = TD->getLocEnd();
+
+      if (s.isMacroID())
+         return;
+
       if (qname.find(From) == std::string::npos)
          return;
 
@@ -395,10 +423,6 @@ public:
          if (auto enclosingNS = dyn_cast<NamespaceDecl>(ctx))
             enclosingNamespace = enclosingNS->getQualifiedNameAsString();
       }
-
-
-      auto s = TD->getLocStart();
-      auto e = TD->getLocEnd();
 
       std::stringstream buffer;
 
