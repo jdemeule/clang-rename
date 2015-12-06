@@ -1,4 +1,4 @@
-//===---- tools/extra/ToolTemplate.cpp - Template for refactoring tool ----===//
+//===---- tools/extra/ClangRename.cpp -------------------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,30 +7,21 @@
 //
 //===----------------------------------------------------------------------===//
 //
-//  This file implements an empty refactoring tool using the clang tooling.
-//  The goal is to lower the "barrier to entry" for writing refactoring tools.
+//  This file implements a rename refactoring tool using the clang tooling.
 //
 //  Usage:
-//  tool-template <cmake-output-dir> <file1> <file2> ...
+//  clang-rename [options] <source0> [... <sourceN>]
 //
-//  Where <cmake-output-dir> is a CMake build directory in which a file named
-//  compile_commands.json exists (enable -DCMAKE_EXPORT_COMPILE_COMMANDS in
-//  CMake to get this output).
-//
-//  <file1> ... specify the paths of files in the CMake source tree. This path
-//  is looked up in the compile command database. If the path of a file is
-//  absolute, it needs to point into CMake's source tree. If the path is
-//  relative, the current working directory needs to be in the CMake source
-//  tree and the file must be in a subdirectory of the current working
-//  directory. "./" prefixes in the relative files will be automatically
-//  removed, but the rest of a relative path must be a suffix of a path in
-//  the compile command line database.
-//
-//  For example, to use tool-template on all files in a subtree of the
-//  source tree, use:
-//
-//    /path/in/subtree $ find . -name '*.cpp'|
-//        xargs tool-template /path/to/build
+//  -change-include-prefix - Change include prefix but do not move files
+//  -from=<string>         - Symbol to rename
+//  -outputdir=<string>    - <path> output dir.
+//  -p=<string>            - Build path
+//  -quiet                 - Do not report colored AST in case of error
+//  -rename-macro          - Replace macro (exact match)
+//  -rename-macro-prefix   - Replace macro prefix
+//  -rename-ns             - Rename a namespace
+//  -stdout                - Print output to cout instead of file
+//  -to=<string>           - New name
 //
 //===----------------------------------------------------------------------===//
 
@@ -44,20 +35,7 @@
 
 using namespace clang;
 using namespace clang::tooling;
-
 using namespace clang_rename;
-
-//#if __clang__
-//
-//namespace std {
-//   template< class T, class... Args >
-//   unique_ptr<T> make_unique(Args&&... args) {
-//      return unique_ptr< T >(new T(std::forward<Args>(args)...));
-//   }
-//}
-//
-//#endif
-
 
 
 int main(int argc, const char **argv) {

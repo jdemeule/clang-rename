@@ -129,12 +129,6 @@ public:
          std::stringstream close_replacement;
          for (std::size_t i = 0, e = NS_to.size() - NS_from.size() + 1; i != e; ++i)
             close_replacement << closeNS;
-         //auto filename = SM.getFilename(r);
-         //if (filename.empty()) {
-         //   bool b = true;
-         //   r.dump(SM);
-         //}
-         //if (isFileID())
 
          Owner.addReplacement(Replacement(SM, CharSourceRange::getTokenRange(r, r), close_replacement.str()));
       }
@@ -227,36 +221,6 @@ private:
    Transform& Owner;
 };
 
-//const char* FullQualifiedParmVarDeclID = "full-qualified-parmvardecl";
-//
-//DeclarationMatcher makeParmVarDeclNSMatcher(const std::string& ns) {
-//   return parmVarDecl(hasType(elaboratedType(hasQualifier(nestedNameSpecifier(specifiesNamespace(hasName(ns)))))))
-//      .bind(FullQualifiedParmVarDeclID);
-//}
-//
-//class ParmVarDeclNSCallback : public MatchFinder::MatchCallback {
-//public:
-//   ParmVarDeclNSCallback(Transform& T)
-//      : Owner(T) {}
-//
-//   virtual void run(const MatchFinder::MatchResult& Result) {
-//      SourceManager& SM = *Result.SourceManager;
-//
-//      auto var = Result.Nodes.getDeclAs<ParmVarDecl>(FullQualifiedParmVarDeclID);
-//      auto s = var->getLocStart();
-//      auto e = var->getLocEnd();
-//      auto type = var->getType().getAsString();
-//
-//      std::stringstream new_decl;
-//      new_decl << replace_all(type, From, To) << " " << var->getNameAsString();
-//
-//      Owner.addReplacement(Replacement(SM, CharSourceRange::getTokenRange(s, e), new_decl.str()));
-//   }
-//
-//private:
-//   Transform& Owner;
-//};
-
 
 const char* UsingDeclID = "using-decl";
 
@@ -300,12 +264,9 @@ private:
 
 
 
-//usingDirectiveDecl
-
 const char* UsingDirectiveDeclID = "using-directive-decl";
 
 DeclarationMatcher makeUsingDirectiveNSMatcher(const std::string& ns) {
-   // filtering should be done later or with a more complex matcher
    return usingDirectiveDecl()
        .bind(UsingDirectiveDeclID);
 }
@@ -346,7 +307,6 @@ private:
 const char* NamespaceAliasDeclID = "namespace-alias-decl";
 
 DeclarationMatcher makeNamespaceAliasDeclMatcher(const std::string& ns) {
-   // filtering should be done later or with a more complex matcher
    return namespaceAliasDecl()
        .bind(NamespaceAliasDeclID);
 }
@@ -452,18 +412,6 @@ private:
 
 const char* NestedNameSpecifierID = "nestedname-specifier-decl";
 
-//NestedNameSpecifierMatcher makeNestedNameSpecifierMatcher(const std::string& ns) {
-//   // filtering should be done later or with a more complex matcher
-//   return nestedNameSpecifier(specifiesNamespace(hasName(ns)))
-//      .bind(NestedNameSpecifierID);
-//}
-
-//NestedNameSpecifierLocMatcher makeNestedNameSpecifierMatcher(const std::string& ns) {
-//   // filtering should be done later or with a more complex matcher
-//   return nestedNameSpecifierLoc(hasPrefix(loc(specifiesNamespace(hasName(ns)))))
-//      .bind(NestedNameSpecifierID);
-//}
-
 NestedNameSpecifierLocMatcher makeNestedNameSpecifierMatcher(const std::string& ns) {
    // filtering should be done later or with a more complex matcher
    return loc(specifiesNamespace(hasName(ns)))
@@ -528,7 +476,6 @@ public:
       auto from_ns_v = split_by(from_ns, "::");
       auto to_ns_v   = split_by(to_ns, "::");
 
-      // assert from_ns_v[-1] € to_ns_v[-1]
 
       RenameNSCallback           Callback(*this, from_ns_v, to_ns_v);
       VarDeclNSCallback          VarCallback(*this, from_ns_v, to_ns_v);
