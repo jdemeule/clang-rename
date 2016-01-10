@@ -113,13 +113,15 @@ static void WriteReplacements(const Replacements& replacements, llvm::StringRef 
 
    auto filename = replace_all(sys::path::filename(mainfilepath).str(), ".", "_");
 
-   std::stringstream outputPath;
-   outputPath << GetOutputDir() << "/" << filename << ".yaml";
+   std::stringstream outputPathBuffer;
+   outputPathBuffer << GetOutputDir() << "/" << filename << ".yaml";
+   std::string outputPath = outputPathBuffer.str();
    std::string    ErrorInfo;
-   raw_fd_ostream ReplacementsFile(outputPath.str().c_str(), ErrorInfo,
+   std::error_code EC;
+   raw_fd_ostream ReplacementsFile(outputPath, EC,
                                    llvm::sys::fs::F_None);
-   if (!ErrorInfo.empty()) {
-      std::cerr << "Error opening file: " << ErrorInfo << "\n";
+   if (EC) {
+      std::cerr << "Error opening file: " << EC.message() << "\n";
       return;
    }
 

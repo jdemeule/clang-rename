@@ -60,7 +60,7 @@ class PPChangeIncludeConsumer : public ASTConsumer {
 public:
    PPChangeIncludeConsumer(Preprocessor& PP, Transform& T) {
       // PP takes ownership.
-      PP.addPPCallbacks(new PPChangeIncludeTracker(PP, T));
+      PP.addPPCallbacks(llvm::make_unique<PPChangeIncludeTracker>(PP, T));
    }
 };
 
@@ -70,9 +70,10 @@ public:
       : Owner(T) {}
 
 protected:
-   virtual clang::ASTConsumer* CreateASTConsumer(CompilerInstance& CI,
-                                                 StringRef InFile) {
-      return new PPChangeIncludeConsumer(CI.getPreprocessor(), Owner);
+   virtual std::unique_ptr<clang::ASTConsumer>
+   CreateASTConsumer(CompilerInstance& CI,
+                     StringRef InFile) {
+      return llvm::make_unique<PPChangeIncludeConsumer>(CI.getPreprocessor(), Owner);
    }
 
 private:

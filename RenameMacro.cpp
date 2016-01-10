@@ -105,8 +105,9 @@ public:
 
    virtual ~PPRenameMacroTracker() {}
 
-   virtual void MacroExpands(const Token& MacroNameTok, const MacroDirective* MD,
-                             SourceRange Range, const MacroArgs* Args) override {
+   virtual void MacroExpands(const clang::Token &MacroNameTok,
+                             const clang::MacroDefinition &MD, clang::SourceRange Range,
+                             const clang::MacroArgs *Args) override {
       TryReplace(MacroNameTok);
    }
 
@@ -115,23 +116,24 @@ public:
       TryReplace(MacroNameTok);
    }
 
-   virtual void MacroUndefined(const Token& MacroNameTok,
-                               const MacroDirective* MD) {
+   virtual void MacroUndefined(const clang::Token &MacroNameTok,
+                               const clang::MacroDefinition &MD) override {
       TryReplace(MacroNameTok);
    }
 
-   virtual void Defined(const Token& MacroNameTok, const MacroDirective* MD,
-                        SourceRange Range) override {
+   virtual void Defined(const clang::Token &MacroNameTok,
+                        const clang::MacroDefinition &MD,
+                        clang::SourceRange Range) override {
       TryReplace(MacroNameTok);
    }
 
-   virtual void Ifdef(SourceLocation Loc, const Token& MacroNameTok,
-                      const MacroDirective* MD) override {
+   virtual void Ifdef(clang::SourceLocation Loc, const clang::Token &MacroNameTok,
+                      const clang::MacroDefinition &MD) override {
       TryReplace(MacroNameTok);
    }
 
-   virtual void Ifndef(SourceLocation Loc, const Token& MacroNameTok,
-                       const MacroDirective* MD) override {
+   virtual void Ifndef(clang::SourceLocation Loc, const clang::Token &MacroNameTok,
+                       const clang::MacroDefinition &MD) override {
       TryReplace(MacroNameTok);
    }
 
@@ -155,7 +157,7 @@ class PPRenameMacroConsumer : public ASTConsumer {
 public:
    PPRenameMacroConsumer(Preprocessor& PP, MacroTransform& T) {
       // PP takes ownership.
-      PP.addPPCallbacks(new PPRenameMacroTracker(PP, T));
+      PP.addPPCallbacks(llvm::make_unique<PPRenameMacroTracker>(PP, T));
    }
 };
 
@@ -165,9 +167,10 @@ public:
       : Owner(T) {}
 
 protected:
-   virtual clang::ASTConsumer* CreateASTConsumer(CompilerInstance& CI,
-                                                 StringRef InFile) {
-      return new PPRenameMacroConsumer(CI.getPreprocessor(), Owner);
+   virtual std::unique_ptr<clang::ASTConsumer>
+   CreateASTConsumer(CompilerInstance& CI,
+                     StringRef InFile) {
+      return llvm::make_unique<PPRenameMacroConsumer>(CI.getPreprocessor(), Owner);
    }
 
 private:
