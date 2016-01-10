@@ -4,14 +4,14 @@
 #include <sstream>
 
 #include "clang/AST/AST.h"
-#include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
+#include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/Lex/Lexer.h"
-#include "clang/Tooling/Refactoring.h"
 #include "clang/Rewrite/Core/Rewriter.h"
-#include "llvm/Support/raw_ostream.h"
+#include "clang/Tooling/Refactoring.h"
 #include "llvm/Support/raw_os_ostream.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include "helper.hpp"
 
@@ -121,9 +121,7 @@ public:
                        });
       }
 
-      Owner.addReplacement(Replacement(SM,
-                                       CharSourceRange::getTokenRange(s, l),
-                                       decl_replacement.str()));
+      Owner.addReplacement(Replacement(SM, CharSourceRange::getTokenRange(s, l), decl_replacement.str()));
 
       if (NS_from.size() < NS_to.size()) {
          std::stringstream close_replacement;
@@ -169,10 +167,10 @@ public:
          return;
 
       auto type_v = split_by(type, "::");
-      auto deep = NS_from.size() - (type_v.size() - 1);
+      auto deep   = NS_from.size() - (type_v.size() - 1);
 
       std::string to_replace = join_with(std::next(NS_from.begin(), deep), NS_from.end(), "::");
-      std::string new_type = join_with(std::next(NS_to.begin(), deep), NS_to.end(), "::");
+      std::string new_type   = join_with(std::next(NS_to.begin(), deep), NS_to.end(), "::");
 
 
       std::stringstream new_decl;
@@ -225,8 +223,7 @@ private:
 const char* UsingDeclID = "using-decl";
 
 DeclarationMatcher makeUsingNSMatcher(const std::string& ns) {
-   return usingDecl(hasAnyUsingShadowDecl(hasTargetDecl(matchesName(ns + "::"))))
-       .bind(UsingDeclID);
+   return usingDecl(hasAnyUsingShadowDecl(hasTargetDecl(matchesName(ns + "::")))).bind(UsingDeclID);
 }
 
 class UsingNSCallback : public MatchFinder::MatchCallback {
@@ -267,8 +264,7 @@ private:
 const char* UsingDirectiveDeclID = "using-directive-decl";
 
 DeclarationMatcher makeUsingDirectiveNSMatcher(const std::string& ns) {
-   return usingDirectiveDecl()
-       .bind(UsingDirectiveDeclID);
+   return usingDirectiveDecl().bind(UsingDirectiveDeclID);
 }
 
 class UsingDirectiveNSCallback : public MatchFinder::MatchCallback {
@@ -307,8 +303,7 @@ private:
 const char* NamespaceAliasDeclID = "namespace-alias-decl";
 
 DeclarationMatcher makeNamespaceAliasDeclMatcher(const std::string& ns) {
-   return namespaceAliasDecl()
-       .bind(NamespaceAliasDeclID);
+   return namespaceAliasDecl().bind(NamespaceAliasDeclID);
 }
 
 class NamespaceAliasDeclCallback : public MatchFinder::MatchCallback {
@@ -347,8 +342,7 @@ const char* TypedefDeclID = "typedef-decl";
 
 DeclarationMatcher makeTypeDefeclMatcher(const std::string& ns) {
    // filtering should be done later or with a more complex matcher
-   return typedefDecl()
-       .bind(TypedefDeclID);
+   return typedefDecl().bind(TypedefDeclID);
 }
 
 class TypedefDeclCallback : public MatchFinder::MatchCallback {
@@ -394,10 +388,12 @@ public:
 
       if (enclosingNamespace.find(From) == 0) {
          return;
-         //auto qname_v = split_by(replace_all(qname, "struct ", ""), "::");
-         //auto currentns_v = split_by(enclosingNamespace, "::");
-         //buffer << "typedef " << join_with(std::next(qname_v.begin(), currentns_v.size()), qname_v.end(), "::") << " " << TD->getNameAsString();
-      } else
+         // auto qname_v = split_by(replace_all(qname, "struct ", ""), "::");
+         // auto currentns_v = split_by(enclosingNamespace, "::");
+         // buffer << "typedef " << join_with(std::next(qname_v.begin(), currentns_v.size()), qname_v.end(), "::") << "
+         // " << TD->getNameAsString();
+      }
+      else
          buffer << "typedef " << replace_all(qname, From, To) << " " << TD->getNameAsString();
 
 
@@ -414,8 +410,7 @@ const char* NestedNameSpecifierID = "nestedname-specifier-decl";
 
 NestedNameSpecifierLocMatcher makeNestedNameSpecifierMatcher(const std::string& ns) {
    // filtering should be done later or with a more complex matcher
-   return loc(specifiesNamespace(hasName(ns)))
-       .bind(NestedNameSpecifierID);
+   return loc(specifiesNamespace(hasName(ns))).bind(NestedNameSpecifierID);
 }
 
 class NestedNameSpecifierCallback : public MatchFinder::MatchCallback {
@@ -436,7 +431,7 @@ public:
 
       while (true) {
          llvm::SmallVector<char, 8> Buffer;
-         bool                       Invalid = false;
+         bool            Invalid  = false;
          llvm::StringRef spelling = Lexer::getSpelling(IdentifierLoc, Buffer, SM, LangOptions(), &Invalid);
          if (Invalid)
             return;
@@ -461,8 +456,7 @@ class RenameNSTransform : public Transform {
 public:
    virtual ~RenameNSTransform() {}
 
-   virtual int apply(const CompilationDatabase& Compilations,
-                     const std::vector<std::string>& SourcePaths) override {
+   virtual int apply(const CompilationDatabase& Compilations, const std::vector<std::string>& SourcePaths) override {
 
       RefactoringTool Tool(Compilations, SourcePaths);
       auto            diagConsumer = std::make_unique<IgnoringDiagConsumer>();
@@ -483,7 +477,7 @@ public:
       UsingNSCallback            UsingCallback(*this);
       UsingDirectiveNSCallback   UsingDirectiveCallback(*this);
       NamespaceAliasDeclCallback NamespaceAliasCallback(*this);
-      //TypedefDeclCallback        TypedefCallback(*this, from_ns_v, to_ns_v);
+      // TypedefDeclCallback        TypedefCallback(*this, from_ns_v, to_ns_v);
       NestedNameSpecifierCallback NestedNameCallback(*this);
 
       MatchFinder Finder;
@@ -494,7 +488,7 @@ public:
       Finder.addMatcher(makeUsingNSMatcher(From), &UsingCallback);
       Finder.addMatcher(makeUsingDirectiveNSMatcher(From), &UsingDirectiveCallback);
       Finder.addMatcher(makeNamespaceAliasDeclMatcher(From), &NamespaceAliasCallback);
-      //Finder.addMatcher(makeTypeDefeclMatcher(From), &TypedefCallback);
+      // Finder.addMatcher(makeTypeDefeclMatcher(From), &TypedefCallback);
       Finder.addMatcher(makeNestedNameSpecifierMatcher(From), &NestedNameCallback);
 
 
@@ -503,21 +497,21 @@ public:
       if (StdOut) {
          LangOptions                           DefaultLangOptions;
          IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
-         TextDiagnosticPrinter DiagnosticPrinter(llvm::errs(), &*DiagOpts);
-         DiagnosticsEngine Diagnostics(IntrusiveRefCntPtr<DiagnosticIDs>(new DiagnosticIDs()),
-                                       &*DiagOpts, &DiagnosticPrinter, false);
+         TextDiagnosticPrinter                 DiagnosticPrinter(llvm::errs(), &*DiagOpts);
+         DiagnosticsEngine Diagnostics(IntrusiveRefCntPtr<DiagnosticIDs>(new DiagnosticIDs()), &*DiagOpts,
+                                       &DiagnosticPrinter, false);
          SourceManager Sources(Diagnostics, Tool.getFiles());
-         Rewriter Rewrite(Sources, DefaultLangOptions);
+         Rewriter      Rewrite(Sources, DefaultLangOptions);
 
          if (!tooling::applyAllReplacements(getReplacements(), Rewrite)) {
             llvm::errs() << "Skipped some replacements.\n";
-         } else {
-            std::for_each(Rewrite.buffer_begin(),
-                          Rewrite.buffer_end(),
-                          [](const Rewriter::buffer_iterator::value_type& x) {
-                             llvm::raw_os_ostream out(std::cout);
-                             x.second.write(out);
-                          });
+         }
+         else {
+            std::for_each(
+                Rewrite.buffer_begin(), Rewrite.buffer_end(), [](const Rewriter::buffer_iterator::value_type& x) {
+                   llvm::raw_os_ostream out(std::cout);
+                   x.second.write(out);
+                });
          }
       }
 
@@ -536,5 +530,4 @@ struct RenameNSTransformFactory : public TransformFactory {
 };
 
 
-static TransformFactoryRegistry::Add<RenameNSTransformFactory>
-    X("rename-ns", "Rename a namespace");
+static TransformFactoryRegistry::Add<RenameNSTransformFactory> X("rename-ns", "Rename a namespace");

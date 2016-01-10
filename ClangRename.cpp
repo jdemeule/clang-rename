@@ -38,7 +38,7 @@ using namespace clang::tooling;
 using namespace clang_rename;
 
 
-int main(int argc, const char **argv) {
+int main(int argc, const char** argv) {
    Transforms transforms;
    transforms.registerOptions();
 

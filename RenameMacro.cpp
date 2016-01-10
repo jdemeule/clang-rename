@@ -10,10 +10,10 @@
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/Lex/PPCallbacks.h"
 #include "clang/Lex/Preprocessor.h"
-#include "clang/Tooling/Refactoring.h"
 #include "clang/Rewrite/Core/Rewriter.h"
-#include "llvm/Support/raw_ostream.h"
+#include "clang/Tooling/Refactoring.h"
 #include "llvm/Support/raw_os_ostream.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include "helper.hpp"
 
@@ -23,8 +23,7 @@ using namespace clang::tooling;
 using namespace clang_rename;
 
 // Get a "file:line:column" source location string.
-static std::string getSourceLocationString(clang::Preprocessor &PP,
-                                           clang::SourceLocation Loc) {
+static std::string getSourceLocationString(clang::Preprocessor& PP, clang::SourceLocation Loc) {
    if (Loc.isInvalid())
       return std::string("(none)");
 
@@ -35,12 +34,11 @@ static std::string getSourceLocationString(clang::Preprocessor &PP,
          return std::string("(invalid)");
       }
 
-      std::string Str;
+      std::string              Str;
       llvm::raw_string_ostream SS(Str);
 
       // The macro expansion and spelling pos is identical for file locs.
-      SS << "\"" << PLoc.getFilename() << ':' << PLoc.getLine() << ':'
-         << PLoc.getColumn() << "\"";
+      SS << "\"" << PLoc.getFilename() << ':' << PLoc.getLine() << ':' << PLoc.getColumn() << "\"";
 
       std::string Result = SS.str();
 
@@ -53,17 +51,13 @@ static std::string getSourceLocationString(clang::Preprocessor &PP,
    return std::string("(nonfile)");
 }
 
-enum class MacroTransformationKind {
-   Exact,
-   Prefix
-};
+enum class MacroTransformationKind { Exact, Prefix };
 
 class MacroTransform : public Transform {
 public:
    MacroTransform(MacroTransformationKind transformation);
 
-   virtual int apply(const CompilationDatabase& Compilations,
-                     const std::vector<std::string>& SourcePaths) override;
+   virtual int apply(const CompilationDatabase& Compilations, const std::vector<std::string>& SourcePaths) override;
 
    MacroTransformationKind Transformation;
 };
@@ -77,7 +71,8 @@ struct MacroReplacement {
 };
 
 
-MacroReplacement BuildMacroReplacement(Preprocessor& PP, const Token& MacroNameTok, MacroTransformationKind Transformation) {
+MacroReplacement BuildMacroReplacement(Preprocessor& PP, const Token& MacroNameTok,
+                                       MacroTransformationKind Transformation) {
    auto spelling = PP.getSpelling(MacroNameTok);
 
    std::stringstream m;
@@ -90,7 +85,7 @@ MacroReplacement BuildMacroReplacement(Preprocessor& PP, const Token& MacroNameT
    }
    else {
       if (spelling.find(From) != 0)
-         return MacroReplacement({ "", 0, false });
+         return MacroReplacement({"", 0, false});
 
       m << To << spelling.substr(From.size());
    }
@@ -105,35 +100,31 @@ public:
 
    virtual ~PPRenameMacroTracker() {}
 
-   virtual void MacroExpands(const clang::Token &MacroNameTok,
-                             const clang::MacroDefinition &MD, clang::SourceRange Range,
-                             const clang::MacroArgs *Args) override {
+   virtual void MacroExpands(const clang::Token& MacroNameTok, const clang::MacroDefinition& MD,
+                             clang::SourceRange Range, const clang::MacroArgs* Args) override {
       TryReplace(MacroNameTok);
    }
 
-   virtual void MacroDefined(const Token& MacroNameTok,
-                             const MacroDirective* MD) override {
+   virtual void MacroDefined(const Token& MacroNameTok, const MacroDirective* MD) override {
       TryReplace(MacroNameTok);
    }
 
-   virtual void MacroUndefined(const clang::Token &MacroNameTok,
-                               const clang::MacroDefinition &MD) override {
+   virtual void MacroUndefined(const clang::Token& MacroNameTok, const clang::MacroDefinition& MD) override {
       TryReplace(MacroNameTok);
    }
 
-   virtual void Defined(const clang::Token &MacroNameTok,
-                        const clang::MacroDefinition &MD,
-                        clang::SourceRange Range) override {
+   virtual void
+   Defined(const clang::Token& MacroNameTok, const clang::MacroDefinition& MD, clang::SourceRange Range) override {
       TryReplace(MacroNameTok);
    }
 
-   virtual void Ifdef(clang::SourceLocation Loc, const clang::Token &MacroNameTok,
-                      const clang::MacroDefinition &MD) override {
+   virtual void Ifdef(clang::SourceLocation Loc, const clang::Token& MacroNameTok,
+                      const clang::MacroDefinition& MD) override {
       TryReplace(MacroNameTok);
    }
 
-   virtual void Ifndef(clang::SourceLocation Loc, const clang::Token &MacroNameTok,
-                       const clang::MacroDefinition &MD) override {
+   virtual void Ifndef(clang::SourceLocation Loc, const clang::Token& MacroNameTok,
+                       const clang::MacroDefinition& MD) override {
       TryReplace(MacroNameTok);
    }
 
@@ -142,10 +133,8 @@ public:
       if (!rep.replace)
          return;
 
-      Owner.addReplacement(Replacement(PP.getSourceManager(),
-                                       MacroNameTok.getLocation(),
-                                       rep.original_size,
-                                       rep.new_macro));
+      Owner.addReplacement(
+          Replacement(PP.getSourceManager(), MacroNameTok.getLocation(), rep.original_size, rep.new_macro));
    }
 
 private:
@@ -167,9 +156,7 @@ public:
       : Owner(T) {}
 
 protected:
-   virtual std::unique_ptr<clang::ASTConsumer>
-   CreateASTConsumer(CompilerInstance& CI,
-                     StringRef InFile) {
+   virtual std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(CompilerInstance& CI, StringRef InFile) {
       return llvm::make_unique<PPRenameMacroConsumer>(CI.getPreprocessor(), Owner);
    }
 
@@ -190,37 +177,31 @@ public:
 
 
 
-
-
-
-
-
 MacroTransform::MacroTransform(MacroTransformationKind transformation)
    : Transformation(transformation) {}
 
-int MacroTransform::apply(const CompilationDatabase& Compilations,
-                          const std::vector<std::string>& SourcePaths) {
+int MacroTransform::apply(const CompilationDatabase& Compilations, const std::vector<std::string>& SourcePaths) {
    ClangTool Tool(Compilations, SourcePaths);
 
    int HadErrors = Tool.run(new PPRenameMacroFrontendActionFactory(*this));
    if (StdOut) {
       LangOptions                           DefaultLangOptions;
       IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
-      TextDiagnosticPrinter DiagnosticPrinter(llvm::errs(), &*DiagOpts);
-      DiagnosticsEngine Diagnostics(IntrusiveRefCntPtr<DiagnosticIDs>(new DiagnosticIDs()),
-                                    &*DiagOpts, &DiagnosticPrinter, false);
+      TextDiagnosticPrinter                 DiagnosticPrinter(llvm::errs(), &*DiagOpts);
+      DiagnosticsEngine Diagnostics(IntrusiveRefCntPtr<DiagnosticIDs>(new DiagnosticIDs()), &*DiagOpts,
+                                    &DiagnosticPrinter, false);
       SourceManager Sources(Diagnostics, Tool.getFiles());
-      Rewriter Rewrite(Sources, DefaultLangOptions);
+      Rewriter      Rewrite(Sources, DefaultLangOptions);
 
       if (!tooling::applyAllReplacements(getReplacements(), Rewrite)) {
          llvm::errs() << "Skipped some replacements.\n";
-      } else {
-         std::for_each(Rewrite.buffer_begin(),
-                       Rewrite.buffer_end(),
-                       [](const Rewriter::buffer_iterator::value_type& x) {
-                          llvm::raw_os_ostream out(std::cout);
-                          x.second.write(out);
-                       });
+      }
+      else {
+         std::for_each(
+             Rewrite.buffer_begin(), Rewrite.buffer_end(), [](const Rewriter::buffer_iterator::value_type& x) {
+                llvm::raw_os_ostream out(std::cout);
+                x.second.write(out);
+             });
       }
    }
    return 0;
@@ -234,9 +215,7 @@ struct RenameMacroTransformFactory : public TransformFactory {
    }
 };
 
-static TransformFactoryRegistry::Add<RenameMacroTransformFactory>
-    R("rename-macro", "Replace macro (exact match)");
-
+static TransformFactoryRegistry::Add<RenameMacroTransformFactory> R("rename-macro", "Replace macro (exact match)");
 
 
 
@@ -248,5 +227,4 @@ struct PrefixMacroTransformFactory : public TransformFactory {
    }
 };
 
-static TransformFactoryRegistry::Add<PrefixMacroTransformFactory>
-    M("rename-macro-prefix", "Replace macro prefix");
+static TransformFactoryRegistry::Add<PrefixMacroTransformFactory> M("rename-macro-prefix", "Replace macro prefix");

@@ -3,16 +3,16 @@
 #include <iostream>
 #include <sstream>
 
-#include "clang/Basic/SourceManager.h"
 #include "clang/Basic/LangOptions.h"
+#include "clang/Basic/SourceManager.h"
 #include "clang/Tooling/ReplacementsYaml.h"
 
 
 
 #include "llvm/Support/Path.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/YAMLTraits.h"
+#include "llvm/Support/raw_os_ostream.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include "helper.hpp"
 
@@ -29,26 +29,16 @@ namespace clang_rename {
 cl::OptionCategory TransformsCategory("Transforms");
 
 
-cl::opt<bool> Quiet("quiet",
-                    cl::desc("Do not report colored AST in case of error"),
-                    cl::cat(TransformsCategory));
+cl::opt<bool> Quiet("quiet", cl::desc("Do not report colored AST in case of error"), cl::cat(TransformsCategory));
 
-cl::opt<bool> StdOut("stdout",
-                    cl::desc("Print output to cout instead of file"),
-                    cl::cat(TransformsCategory));
+cl::opt<bool> StdOut("stdout", cl::desc("Print output to cout instead of file"), cl::cat(TransformsCategory));
 
-cl::opt<std::string> From("from",
-                          cl::desc("Symbol to rename"),
-                          cl::cat(TransformsCategory));
-cl::opt<std::string> To("to",
-                        cl::desc("New name"),
-                        cl::cat(TransformsCategory));
+cl::opt<std::string> From("from", cl::desc("Symbol to rename"), cl::cat(TransformsCategory));
+cl::opt<std::string> To("to", cl::desc("New name"), cl::cat(TransformsCategory));
 
 static cl::opt<bool> AllTransformation("all", cl::desc("Apply all transformations"), cl::cat(TransformsCategory));
 
-static cl::opt<std::string> OutputDir("outputdir",
-                                      cl::desc("<path> output dir."),
-                                      cl::cat(TransformsCategory));
+static cl::opt<std::string> OutputDir("outputdir", cl::desc("<path> output dir."), cl::cat(TransformsCategory));
 
 static std::string GetOutputDir() {
    if (OutputDir.empty())
@@ -61,8 +51,7 @@ static std::string GetOutputDir() {
    return path;
 }
 
-void copy_substr(const std::string::const_iterator& start,
-                 const std::string::const_iterator& end, std::ostream& ostr) {
+void copy_substr(const std::string::const_iterator& start, const std::string::const_iterator& end, std::ostream& ostr) {
    for (std::string::const_iterator it = start; it != end; ++it)
       ostr << *it;
 }
@@ -96,10 +85,8 @@ bool Transform::addReplacement(const Replacement& replacement) {
 
 
 template <typename It>
-TranslationUnitReplacements BuildTURs(const std::string& mainfilepath,
-                                      const std::string& context,
-                                      It                 firstReplacement,
-                                      It lastReplacement) {
+TranslationUnitReplacements
+BuildTURs(const std::string& mainfilepath, const std::string& context, It firstReplacement, It lastReplacement) {
    TranslationUnitReplacements TURs;
    TURs.MainSourceFile = mainfilepath;
    TURs.Context        = context;
@@ -115,11 +102,10 @@ static void WriteReplacements(const Replacements& replacements, llvm::StringRef 
 
    std::stringstream outputPathBuffer;
    outputPathBuffer << GetOutputDir() << "/" << filename << ".yaml";
-   std::string outputPath = outputPathBuffer.str();
-   std::string    ErrorInfo;
+   std::string     outputPath = outputPathBuffer.str();
+   std::string     ErrorInfo;
    std::error_code EC;
-   raw_fd_ostream ReplacementsFile(outputPath, EC,
-                                   llvm::sys::fs::F_None);
+   raw_fd_ostream  ReplacementsFile(outputPath, EC, llvm::sys::fs::F_None);
    if (EC) {
       std::cerr << "Error opening file: " << EC.message() << "\n";
       return;
@@ -129,7 +115,7 @@ static void WriteReplacements(const Replacements& replacements, llvm::StringRef 
    context << "modernize of " << static_cast<std::string>(mainfilepath);
 
    yaml::Output YAML(ReplacementsFile);
-   auto turs = BuildTURs(mainfilepath, context.str(), replacements.begin(), replacements.end());
+   auto         turs = BuildTURs(mainfilepath, context.str(), replacements.begin(), replacements.end());
    YAML << turs;
 }
 
@@ -141,17 +127,15 @@ void Transform::serializeReplacements(llvm::StringRef mainfilepath) {
 
 Transforms::Transforms()
    : m_transforms()
-   , m_options() {
-}
+   , m_options() {}
 
 void Transforms::registerOptions() {
-   for (TransformFactoryRegistry::iterator I = TransformFactoryRegistry::begin(),
-                                           E = TransformFactoryRegistry::end();
-        I != E; ++I) {
+   for (TransformFactoryRegistry::iterator I = TransformFactoryRegistry::begin(), E = TransformFactoryRegistry::end();
+        I != E;
+        ++I) {
 
-      m_options[I->getName()] = std::make_unique<cl::opt<bool> >(I->getName(),
-                                                                 cl::desc(I->getDesc()),
-                                                                 cl::cat(TransformsCategory));
+      m_options[I->getName()] =
+          std::make_unique<cl::opt<bool> >(I->getName(), cl::desc(I->getDesc()), cl::cat(TransformsCategory));
    }
 }
 
@@ -177,9 +161,9 @@ void Transforms::apply(const CompilationDatabase& Compilations, const std::vecto
 
 
 void Transforms::instanciateTransforms() {
-   for (TransformFactoryRegistry::iterator I = TransformFactoryRegistry::begin(),
-                                           E = TransformFactoryRegistry::end();
-        I != E; ++I) {
+   for (TransformFactoryRegistry::iterator I = TransformFactoryRegistry::begin(), E = TransformFactoryRegistry::end();
+        I != E;
+        ++I) {
 
       if (*m_options[I->getName()] || AllTransformation) {
          auto factory = I->instantiate();

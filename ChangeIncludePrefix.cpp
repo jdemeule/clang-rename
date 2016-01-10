@@ -10,10 +10,10 @@
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/Lex/PPCallbacks.h"
 #include "clang/Lex/Preprocessor.h"
-#include "clang/Tooling/Refactoring.h"
 #include "clang/Rewrite/Core/Rewriter.h"
-#include "llvm/Support/raw_ostream.h"
+#include "clang/Tooling/Refactoring.h"
 #include "llvm/Support/raw_os_ostream.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include "helper.hpp"
 
@@ -30,7 +30,7 @@ public:
 
    virtual ~PPChangeIncludeTracker() {}
 
-   virtual void InclusionDirective(SourceLocation HashLoc,
+   virtual void InclusionDirective(SourceLocation   HashLoc,
                                    const Token&     IncludeTok,
                                    StringRef        FileName,
                                    bool             IsAngled,
@@ -38,7 +38,7 @@ public:
                                    const FileEntry* File,
                                    StringRef        SearchPath,
                                    StringRef        RelativePath,
-                                   const Module* Imported) override {
+                                   const Module*    Imported) override {
 
       std::string target = FileName;
       if (target.find(From) != 0)
@@ -70,9 +70,7 @@ public:
       : Owner(T) {}
 
 protected:
-   virtual std::unique_ptr<clang::ASTConsumer>
-   CreateASTConsumer(CompilerInstance& CI,
-                     StringRef InFile) {
+   virtual std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(CompilerInstance& CI, StringRef InFile) {
       return llvm::make_unique<PPChangeIncludeConsumer>(CI.getPreprocessor(), Owner);
    }
 
@@ -94,29 +92,28 @@ public:
 
 class ChangeIncludePrefixTransform : public Transform {
 public:
-   virtual int apply(const CompilationDatabase& Compilations,
-                     const std::vector<std::string>& SourcePaths) override {
+   virtual int apply(const CompilationDatabase& Compilations, const std::vector<std::string>& SourcePaths) override {
       ClangTool Tool(Compilations, SourcePaths);
 
       int HadErrors = Tool.run(new PPChangeIncludeFrontendActionFactory(*this));
       if (StdOut) {
          LangOptions                           DefaultLangOptions;
          IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
-         TextDiagnosticPrinter DiagnosticPrinter(llvm::errs(), &*DiagOpts);
-         DiagnosticsEngine Diagnostics(IntrusiveRefCntPtr<DiagnosticIDs>(new DiagnosticIDs()),
-                                       &*DiagOpts, &DiagnosticPrinter, false);
+         TextDiagnosticPrinter                 DiagnosticPrinter(llvm::errs(), &*DiagOpts);
+         DiagnosticsEngine Diagnostics(IntrusiveRefCntPtr<DiagnosticIDs>(new DiagnosticIDs()), &*DiagOpts,
+                                       &DiagnosticPrinter, false);
          SourceManager Sources(Diagnostics, Tool.getFiles());
-         Rewriter Rewrite(Sources, DefaultLangOptions);
+         Rewriter      Rewrite(Sources, DefaultLangOptions);
 
          if (!tooling::applyAllReplacements(getReplacements(), Rewrite)) {
             llvm::errs() << "Skipped some replacements.\n";
-         } else {
-            std::for_each(Rewrite.buffer_begin(),
-                          Rewrite.buffer_end(),
-                          [](const Rewriter::buffer_iterator::value_type& x) {
-                             llvm::raw_os_ostream out(std::cout);
-                             x.second.write(out);
-                          });
+         }
+         else {
+            std::for_each(
+                Rewrite.buffer_begin(), Rewrite.buffer_end(), [](const Rewriter::buffer_iterator::value_type& x) {
+                   llvm::raw_os_ostream out(std::cout);
+                   x.second.write(out);
+                });
          }
       }
       return 0;
